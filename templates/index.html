@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PocketSmart AI — Smart Budget Assistant</title>
+    <meta name="description" content="AI-powered personal budget analyzer and recommendation assistant using Groq AI." />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<!-- ============  Animated background particles  ============ -->
+<div class="bg-effects">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="grid-overlay"></div>
+</div>
+
+<!-- ============  Main wrapper  ============ -->
+<div class="app-wrapper">
+
+    <!-- ----  Header  ---- -->
+    <header class="app-header">
+        <div class="logo">
+            <span class="logo-icon">💰</span>
+            <div>
+                <h1>PocketSmart <span class="ai-badge">AI</span></h1>
+                <p class="tagline">Your Smart Budget &amp; Recommendation Assistant</p>
+            </div>
+        </div>
+    </header>
+
+    <!-- ----  Two-column layout  ---- -->
+    <main class="main-grid">
+
+        <!-- LEFT: Input panel -->
+        <section class="panel input-panel glass" id="inputPanel">
+            <div class="panel-header">
+                <span class="panel-icon">📝</span>
+                <h2>Enter Your Finances</h2>
+            </div>
+
+            <form id="budgetForm" autocomplete="off">
+                <!-- Income -->
+                <div class="field-group income-group">
+                    <label for="income">
+                        <span class="field-emoji">💵</span> Monthly Income (₹)
+                    </label>
+                    <input type="number" id="income" name="income" min="0" step="any"
+                           placeholder="e.g. 50000" required />
+                </div>
+
+                <div class="divider"><span>Expense Categories</span></div>
+
+                <!-- Expenses grid -->
+                <div class="expense-grid">
+                    <div class="field-group">
+                        <label for="rent"><span class="field-emoji">🏠</span> Rent / Housing</label>
+                        <input type="number" id="rent" name="rent" min="0" step="any" placeholder="0" />
+                    </div>
+                    <div class="field-group">
+                        <label for="groceries"><span class="field-emoji">🛒</span> Groceries</label>
+                        <input type="number" id="groceries" name="groceries" min="0" step="any" placeholder="0" />
+                    </div>
+                    <div class="field-group">
+                        <label for="transport"><span class="field-emoji">🚗</span> Transport</label>
+                        <input type="number" id="transport" name="transport" min="0" step="any" placeholder="0" />
+                    </div>
+                    <div class="field-group">
+                        <label for="entertainment"><span class="field-emoji">🎬</span> Entertainment</label>
+                        <input type="number" id="entertainment" name="entertainment" min="0" step="any" placeholder="0" />
+                    </div>
+                    <div class="field-group">
+                        <label for="utilities"><span class="field-emoji">💡</span> Utilities</label>
+                        <input type="number" id="utilities" name="utilities" min="0" step="any" placeholder="0" />
+                    </div>
+                    <div class="field-group">
+                        <label for="other"><span class="field-emoji">📦</span> Other</label>
+                        <input type="number" id="other" name="other" min="0" step="any" placeholder="0" />
+                    </div>
+                </div>
+
+                <!-- Live summary bar -->
+                <div class="live-summary glass-dark" id="liveSummary">
+                    <div class="summary-item">
+                        <span>Total Expenses</span>
+                        <strong id="totalExp">₹0</strong>
+                    </div>
+                    <div class="summary-item">
+                        <span>Remaining</span>
+                        <strong id="remaining">₹0</strong>
+                    </div>
+                </div>
+
+                <!-- Error message -->
+                <div class="error-box" id="errorBox" role="alert"></div>
+
+                <!-- Submit -->
+                <button type="submit" class="btn-analyze" id="submitBtn">
+                    <span class="btn-text">🚀 Analyze My Budget</span>
+                    <span class="btn-loader" id="btnLoader">
+                        <span class="spinner"></span> Analyzing…
+                    </span>
+                </button>
+            </form>
+        </section>
+
+        <!-- RIGHT: Results panel -->
+        <section class="panel result-panel glass" id="resultPanel">
+            <!-- Placeholder state -->
+            <div class="placeholder" id="placeholder">
+                <div class="placeholder-icon">🤖</div>
+                <h3>AI Insights Will Appear Here</h3>
+                <p>Fill in your income &amp; expenses, then hit <strong>Analyze</strong> to get personalised budget advice powered by <em>Groq AI (Llama 3)</em>.</p>
+                <div class="feature-pills">
+                    <span class="pill">📊 Budget Analysis</span>
+                    <span class="pill">💡 Saving Tips</span>
+                    <span class="pill">📈 Strategies</span>
+                    <span class="pill">⚠️ Warnings</span>
+                </div>
+            </div>
+
+            <!-- AI result (hidden initially) -->
+            <div class="ai-result" id="aiResult" style="display:none;">
+                <div class="result-header">
+                    <span class="result-icon">✨</span>
+                    <h2>Your AI Budget Report</h2>
+                </div>
+                <div class="result-body" id="resultBody"></div>
+                <button class="btn-reset" id="resetBtn" title="Clear & start over">↩ New Analysis</button>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="app-footer">
+        <p>Powered by <strong>Groq AI</strong> &middot; Built with Flask &middot; &copy; 2026 PocketSmart AI</p>
+    </footer>
+</div>
+
+<!-- ============  Script  ============ -->
+<script>
+(() => {
+    const form         = document.getElementById('budgetForm');
+    const submitBtn    = document.getElementById('submitBtn');
+    const btnText      = submitBtn.querySelector('.btn-text');
+    const btnLoader    = document.getElementById('btnLoader');
+    const errorBox     = document.getElementById('errorBox');
+    const placeholder  = document.getElementById('placeholder');
+    const aiResult     = document.getElementById('aiResult');
+    const resultBody   = document.getElementById('resultBody');
+    const resetBtn     = document.getElementById('resetBtn');
+    const totalExpEl   = document.getElementById('totalExp');
+    const remainingEl  = document.getElementById('remaining');
+    const incomeInput  = document.getElementById('income');
+
+    const expenseIds = ['rent','groceries','transport','entertainment','utilities','other'];
+
+    // ---- live summary ----
+    function updateSummary() {
+        const income = parseFloat(incomeInput.value) || 0;
+        let total = 0;
+        expenseIds.forEach(id => { total += parseFloat(document.getElementById(id).value) || 0; });
+        totalExpEl.textContent  = '₹' + total.toLocaleString('en-IN');
+        remainingEl.textContent = '₹' + (income - total).toLocaleString('en-IN');
+        remainingEl.classList.toggle('negative', income - total < 0);
+    }
+    [incomeInput, ...expenseIds.map(id => document.getElementById(id))].forEach(el => {
+        el.addEventListener('input', updateSummary);
+    });
+
+    // ---- error helpers ----
+    function showError(msg) {
+        errorBox.textContent = msg;
+        errorBox.classList.add('visible');
+    }
+    function hideError() {
+        errorBox.textContent = '';
+        errorBox.classList.remove('visible');
+    }
+
+    // ---- loading state ----
+    function setLoading(on) {
+        submitBtn.disabled = on;
+        btnText.style.display   = on ? 'none' : '';
+        btnLoader.style.display = on ? 'inline-flex' : 'none';
+    }
+
+    // ---- markdown → HTML (lightweight) ----
+    function md(text) {
+        let html = text
+            .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+            .replace(/^## (.+)$/gm, '<h3 class="section-heading">$1</h3>')
+            .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            .replace(/^\- (.+)$/gm, '<li>$1</li>')
+            .replace(/^\* (.+)$/gm, '<li>$1</li>')
+            .replace(/\n{2,}/g, '<br/><br/>')
+            .replace(/\n/g, '<br/>');
+        // wrap consecutive <li> in <ul>
+        html = html.replace(/((?:<li>.*?<\/li><br\/>?)+)/g, '<ul>$1</ul>');
+        // tables (simple pipe tables)
+        html = html.replace(/(<br\/?>)?\|(.+)\|(<br\/?>)?/g, (match, pre, content, post) => {
+            if (content.match(/^[\s\-|]+$/)) return ''; // separator row
+            const cells = content.split('|').map(c => `<td>${c.trim()}</td>`).join('');
+            return `<tr>${cells}</tr>`;
+        });
+        html = html.replace(/((?:<tr>.*?<\/tr>)+)/g, '<table class="md-table">$1</table>');
+        return html;
+    }
+
+    // ---- form submit ----
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideError();
+
+        const income = incomeInput.value.trim();
+        if (!income || isNaN(income) || Number(income) < 0) {
+            showError('Please enter a valid monthly income.');
+            incomeInput.focus();
+            return;
+        }
+
+        const expenses = {};
+        let hasExpense = false;
+        for (const id of expenseIds) {
+            const val = document.getElementById(id).value.trim();
+            if (val && Number(val) > 0) {
+                expenses[id] = Number(val);
+                hasExpense = true;
+            }
+        }
+        if (!hasExpense) {
+            showError('Please enter at least one expense category.');
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            const res  = await fetch('/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ income: Number(income), expenses })
+            });
+            const data = await res.json();
+
+            if (!res.ok) {
+                showError(data.error || 'Server error. Please try again.');
+                setLoading(false);
+                return;
+            }
+
+            // show result
+            resultBody.innerHTML = md(data.advice);
+            placeholder.style.display = 'none';
+            aiResult.style.display    = 'block';
+            aiResult.classList.add('fade-in');
+            // scroll result into view on mobile
+            aiResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (err) {
+            showError('Network error — check your connection and try again.');
+        }
+
+        setLoading(false);
+    });
+
+    // ---- reset ----
+    resetBtn.addEventListener('click', () => {
+        form.reset();
+        updateSummary();
+        aiResult.style.display    = 'none';
+        placeholder.style.display = '';
+        hideError();
+    });
+})();
+</script>
+</body>
+</html>
